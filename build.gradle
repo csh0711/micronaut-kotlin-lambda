@@ -1,0 +1,100 @@
+plugins {
+    id "io.spring.dependency-management" version "1.0.6.RELEASE"
+    id "com.github.johnrengelman.shadow" version "4.0.2"
+    id "jp.classmethod.aws.lambda" version "0.38"
+    id "org.jetbrains.kotlin.jvm" version "1.2.61"
+    id "org.jetbrains.kotlin.kapt" version "1.2.61"
+    id "org.jetbrains.kotlin.plugin.allopen" version "1.2.61"	
+}
+
+apply plugin:"application"
+
+version "0.1"
+group "info.novatec"
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url "https://jcenter.bintray.com" }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom 'io.micronaut:micronaut-bom:1.0.3'
+    }
+}
+
+dependencies {
+    compile "io.micronaut:micronaut-function-aws"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlinVersion}"
+    compile "org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}"
+    compile "io.micronaut:micronaut-runtime"
+    kapt "io.micronaut:micronaut-inject-java"
+    kapt "io.micronaut:micronaut-validation"
+    kaptTest "io.micronaut:micronaut-inject-java"
+    runtime "ch.qos.logback:logback-classic:1.2.3"
+    runtime "com.amazonaws:aws-lambda-java-log4j2:1.0.0"
+    runtime "org.apache.logging.log4j:log4j-slf4j-impl:2.9.1"
+    runtime "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.7"
+    testCompile "io.micronaut:micronaut-function-client"
+    testCompile "io.micronaut:micronaut-http-client"
+    testCompile "org.junit.jupiter:junit-jupiter-api:5.1.0"
+    testCompile "org.jetbrains.spek:spek-api:1.1.5"
+    testCompile 'org.junit.jupiter:junit-jupiter-params:5.1.0'
+    testRuntime "io.micronaut:micronaut-http-server-netty"
+    testRuntime "io.micronaut:micronaut-function-web"
+    testRuntime "org.junit.jupiter:junit-jupiter-engine:5.1.0"
+    testRuntime "org.jetbrains.spek:spek-junit-platform-engine:1.1.5"
+}
+
+shadowJar {
+    mergeServiceFiles()
+}
+
+run.jvmArgs('-noverify', '-XX:TieredStopAtLevel=1')
+shadowJar {
+    transform(com.github.jengelman.gradle.plugins.shadow.transformers.Log4j2PluginsCacheFileTransformer)
+}
+mainClassName = "io.micronaut.function.executor.FunctionApplication"
+applicationDefaultJvmArgs = [""]
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+}
+
+if (new File("${System.getProperty("user.home")}/.aws/credentials").exists()) {
+    task deploy(type: jp.classmethod.aws.gradle.lambda.AWSLambdaMigrateFunctionTask, dependsOn: shadowJar) {
+        functionName = "break-even-calculator"
+        handler = "io.micronaut.function.aws.MicronautRequestStreamHandler"
+        role = "arn:aws:iam::${aws.accountId}:role/lambda_basic_execution"
+        runtime = com.amazonaws.services.lambda.model.Runtime.Java8
+        zipFile = shadowJar.archivePath
+        memorySize = 256
+        timeout = 60
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+allOpen {
+	annotation("io.micronaut.aop.Around")
+}
+
+compileKotlin {
+	kotlinOptions {
+	    jvmTarget = '1.8' 
+	    //Will retain parameter names for Java reflection
+	    javaParameters = true 
+	}
+}
+
+compileTestKotlin {
+	kotlinOptions {
+	    jvmTarget = '1.8' 
+	    javaParameters = true 
+	}
+}

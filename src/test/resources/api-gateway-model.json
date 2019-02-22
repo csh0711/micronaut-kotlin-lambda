@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "BreakEvenCaculationRequest",
+  "type": "object",
+  "properties": {
+    "price": {
+      "type": "number"
+    },
+    "fixedCosts": {
+      "type": "number"
+    },
+    "unitCosts": {
+      "type": "number"
+    }
+  },
+  "required": ["price", "fixedCosts", "unitCosts"]
+}
